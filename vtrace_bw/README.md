@@ -16,30 +16,45 @@ pixels ──► black/white labels ──► remove specks ──► follow reg
 
 ## Install & run
 
-Needs Python 3.10+ with `numpy`, `scipy`, `pillow` (no other dependencies).
+Needs Python 3.10+ with `numpy`, `scipy`, `pillow` (for the tracing core).
+For AI background removal and perspective rectification, also install `opencv-python`, `torch`, `transformers`.
 
 ```bash
+# Core dependencies
 pip install numpy scipy pillow
+
+# Optional preprocessing dependencies (for --remove-bg and --rectify)
+pip install opencv-python torch torchvision transformers
 
 # command line
 python -m vtrace input.png -o output.svg --preset Silhouettes
 python -m vtrace input.png --threshold 150 --paths 70 --corners 60 --noise 20 --ignore-white
+python -m vtrace fachada.jpg -o fachada.svg --preset "Line Art" --remove-bg --rectify
+python -m vtrace fachada.jpg --remove-bg --rectify --save-preprocessed preprocessed.png
 python -m vtrace input.png --dump-dir debug/        # also writes the intermediate label images
 
 # python
 python - <<'EOF'
 from vtrace import trace_image, preset, save_svg
+
+# Basic trace
 result = trace_image("input.png", preset("Line Art"))
+
+# With AI background removal and perspective rectification
+result_facade = trace_image("fachada.jpg", preset("Line Art"), rectify=True, remove_bg=True)
+
 print(len(result.paths), "paths,", result.anchor_count(), "anchors")
 save_svg(result, "output.svg")
 EOF
 
-# tests (26) and examples
+# tests (29) and examples
 python -m unittest discover -s tests -v
 python examples/make_examples.py          # writes SVG + PNG previews to examples/out/
 ```
 
 ## What the settings do
+
+### Trace parameters
 
 | setting | range | effect |
 |---|---|---|
@@ -49,6 +64,14 @@ python examples/make_examples.py          # writes SVG + PNG previews to example
 | `noise` | px | Regions and holes smaller than this many pixels are removed. |
 | `ignore_white` | bool | Don't emit white shapes (no background rectangle). |
 | `snap_curves_to_lines` | bool | Near-straight curves → lines; circular runs → true arcs; near-level/upright lines → exactly level/upright. |
+
+### Preprocessing flags (optional)
+
+| flag | effect |
+|---|---|
+| `--remove-bg` | Segments the foreground using RMBG-1.4 and creates an Alpha channel so the background is not traced. |
+| `--rectify` | Rectifies perspective (lines & vanishing points homography) while preserving Alpha transparency. |
+| `--save-preprocessed <file>` | Writes the intermediate preprocessed RGBA PNG file to disk. |
 
 ### Presets (identical numbers to the Rust `preset()`)
 
@@ -69,6 +92,7 @@ Read in this order; it follows the data through the pipeline.
 
 | # | file | stage | Rust original (`crates/trace/src/`) |
 |---|---|---|---|
+| 0 | `preprocess.py` | optional: background removal (RMBG-1.4) + perspective rectification | (new) |
 | 1 | `params.py` | settings, presets, sliders → fit numbers | `lib.rs` (`TraceParams`, `outline_style`, `preset`) |
 | 2 | `quantize.py` | pixel → black/white label; reference tones; **denoise** | `quantize.rs`, `bw_tones` in `lib.rs` |
 | 3 | `contour.py` | follow each region's boundary along pixel cracks | `contour.rs` |

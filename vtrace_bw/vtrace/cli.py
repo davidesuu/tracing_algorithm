@@ -25,12 +25,22 @@ def main(argv=None) -> int:
     ap.add_argument("--keep-white", dest="ignore_white", action="store_false")
     ap.add_argument("--snap", dest="snap_curves_to_lines", action="store_true", default=None,
                     help="Snap Curves To Lines")
+    ap.add_argument("--remove-bg", action="store_true", help="Remove background using RMBG-1.4 (creates transparency)")
+    ap.add_argument("--rectify", action="store_true", help="Rectify facade perspective using vanishing points")
+    ap.add_argument("--save-preprocessed", help="Save the preprocessed RGBA image (e.g. preprocessed.png)")
     ap.add_argument("--dump-dir", help="also write the intermediate label images (quantized / denoised) here")
     a = ap.parse_args(argv)
 
     params = with_overrides(preset(a.preset), threshold=a.threshold, paths=a.paths, corners=a.corners,
                             noise=a.noise, ignore_white=a.ignore_white, snap_curves_to_lines=a.snap_curves_to_lines)
     rgba = load_rgba(a.input)
+    if a.remove_bg or a.rectify:
+        from .preprocess import preprocess_image
+        rgba = preprocess_image(rgba, rectify=a.rectify, remove_bg=a.remove_bg)
+        if a.save_preprocessed:
+            from PIL import Image
+            Image.fromarray(rgba).save(a.save_preprocessed)
+            print(f"saved preprocessed image to {a.save_preprocessed}")
     t0 = time.time()
     res = trace(rgba, params)
     out = a.output or os.path.splitext(a.input)[0] + ".svg"

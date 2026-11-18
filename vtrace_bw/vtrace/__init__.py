@@ -20,10 +20,21 @@ def load_rgba(path: str) -> np.ndarray:
     return np.array(Image.open(path).convert("RGBA"), dtype=np.uint8)
 
 
-def trace_image(path: str, params: TraceParams = TraceParams()) -> TraceResult:
-    """Convenience: load ``path`` and trace it."""
-    return trace(load_rgba(path), params)
+def trace_image(
+    path: str,
+    params: TraceParams = TraceParams(),
+    rectify: bool = False,
+    remove_bg: bool = False,
+) -> TraceResult:
+    """Convenience: load ``path``, optionally preprocess (remove bg / rectify), and trace it."""
+    rgba = load_rgba(path)
+    if rectify or remove_bg:
+        from .preprocess import preprocess_image
+        rgba = preprocess_image(rgba, rectify=rectify, remove_bg=remove_bg)
+    return trace(rgba, params)
 
 
-__all__ = ["TraceParams", "PRESETS", "preset", "with_overrides", "trace", "trace_image",
-           "TraceResult", "TracedPath", "to_svg", "save_svg", "load_rgba"]
+__all__ = [
+    "TraceParams", "PRESETS", "preset", "with_overrides", "trace", "trace_image",
+    "TraceResult", "TracedPath", "to_svg", "save_svg", "load_rgba"
+]
